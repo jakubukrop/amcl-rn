@@ -5,6 +5,7 @@
 #include <syslog.h>
 
 #include "amcl.h"
+#include "randapi.h"
 #include "config_curve_BLS381.h"
 
 #if CURVE_SECURITY_BLS381 == 128
@@ -24,23 +25,43 @@
 #define G2LEN 16 * BFS_BLS381
 #endif
 
+jboolean isCopy = JNI_FALSE;
+jboolean inited = JNI_FALSE;
+csprng RNG;
+
 int maxLen64(int len)
 {
   return ((len / 3) + 2) * 4 + 1;
 }
 
-jobjectArray Java_com_amclrn_crypto_BlsModule_keyPairGenerateJNI(JNIEnv *env, jobject thiz, jstring seed)
+jobjectArray Java_com_amclrn_crypto_BlsModule_keyPairGenerateJNI(JNIEnv *env, jobject thiz, jstring seedString)
 {
+  jsize seedLength = (*env)->GetStringUTFLength(env, seedString);
+  if (seedLength > 0 && !inited)
+  {
+    // convert seed string to octet
+    const char *seedStr = (*env)->GetStringUTFChars(env, seedString, &isCopy);
+    char seed[32];
+    octet SEED = {0, sizeof(seed), seed};
+    OCT_jstring(&SEED, (char *)seedStr);
+
+    CREATE_CSPRNG(&RNG, &SEED);
+    (*env)->ReleaseStringUTFChars(env, seedString, seedStr);
+    inited = JNI_TRUE;
+  }
+
+  // Secret key
   char sk[BGS_BLS381];
   octet SK = {0, sizeof(sk), sk};
   char skStr[maxLen64(BGS_BLS381)];
 
+  // Public key
   char pk[G2LEN];
   octet PK = {0, sizeof(pk), pk};
   char pkStr[maxLen64(G2LEN)];
 
   // TODO: Use secure random generator insterad of NULL, use seed too
-  BLS_BLS381_KEY_PAIR_GENERATE(NULL, &SK, &PK);
+  BLS_BLS381_KEY_PAIR_GENERATE(&RNG, &SK, &PK);
 
   // convert SK and PK to base64 strings
   OCT_tobase64(skStr, &SK);
@@ -56,8 +77,6 @@ jobjectArray Java_com_amclrn_crypto_BlsModule_keyPairGenerateJNI(JNIEnv *env, jo
 
 jstring Java_com_amclrn_crypto_BlsModule_signJNI(JNIEnv *env, jobject thiz, jstring msgString, jstring skString)
 {
-  jboolean isCopy = JNI_FALSE;
-
   // convert message string to octet
   const char *msgStr = (*env)->GetStringUTFChars(env, msgString, &isCopy);
   char m[sizeof(msgStr)];
@@ -90,8 +109,6 @@ jstring Java_com_amclrn_crypto_BlsModule_signJNI(JNIEnv *env, jobject thiz, jstr
 jint Java_com_amclrn_crypto_BlsModule_verifyJNI(JNIEnv *env, jobject thiz,
                                                 jstring sigString, jstring msgString, jstring pkString)
 {
-  jboolean isCopy = JNI_FALSE;
-
   // convert message string to octet
   const char *msgStr = (*env)->GetStringUTFChars(env, msgString, &isCopy);
   char m[sizeof(msgStr)];

@@ -1,29 +1,39 @@
 import React, {useState} from 'react'
-import {Text, View, Button, NativeModules} from 'react-native'
+import {Text, TextInput, View, Button, NativeModules} from 'react-native'
+import {useForm, Controller} from 'react-hook-form'
+
+import styles from './Form.style'
+
+type FormData = {
+  msg: string
+}
 
 export default function App() {
   const [error, setError] = useState('')
+  const [seed] = useState('1234')
+
   const [pk, setPk] = useState('')
   const [sk, setSk] = useState('')
+
+  const [msg, setMsg] = useState('To be or not to be.')
   const [sig, setSig] = useState('')
   const [verified, setVerified] = useState('')
 
-  const msg = 'To be or not to be.'
+  const {control, handleSubmit} = useForm<FormData>()
 
-  const onGenerateKeys = async () => {
+  const onGenerateKeys = handleSubmit(async () => {
     try {
-      // TODO use seed
-      const keys = await NativeModules.Bls.keyPairGenerate('')
+      const keys = await NativeModules.Bls.keyPairGenerate(seed)
       setPk(keys.pk || '')
       setSk(keys.sk || '')
-      setSig('')
       setVerified('')
     } catch (err) {
       setError(`KeyPairGenerate error: ${err}`)
     }
-  }
+  })
 
-  const onSign = async () => {
+  const onSign = handleSubmit(async ({msg}) => {
+    setMsg(msg)
     try {
       const sig = await NativeModules.Bls.sign(msg, sk)
       setSig(sig)
@@ -31,35 +41,49 @@ export default function App() {
     } catch (err) {
       setError(`Sign error: ${err}`)
     }
-  }
+  })
 
-  const onVerify = async () => {
+  const onVerify = handleSubmit(async ({msg}) => {
+    setMsg(msg)
     try {
       const verified = await NativeModules.Bls.verify(sig, msg, pk)
       setVerified(verified ? 'Succeded' : 'Failed')
     } catch (err) {
       setError(`Verify error: ${err}`)
     }
-  }
+  })
 
   return (
     <View>
-      <Text>AMCL showcase</Text>
+      <Text>AMCL BLS showcase</Text>
 
       <Button title="Generate keys" onPress={onGenerateKeys} />
-      <Text>PK: {pk}</Text>
-      <Text>SK: {sk}</Text>
+      <Text>Public Key (base64)</Text>
+      <Text style={styles.output}>{pk}</Text>
+      <Text>Secret Key (base64)</Text>
+      <Text style={styles.output}>{sk}</Text>
+
+      <Text>Message</Text>
+      <Controller
+        as={TextInput}
+        control={control}
+        name="msg"
+        onChange={(args) => args[0].nativeEvent.text}
+        defaultValue={msg}
+        style={styles.textInput}
+      />
 
       <Button title="Sign message" onPress={onSign} disabled={!sk.length} />
-      <Text>Msg: "{msg}"</Text>
-      <Text>Sig: {sig}</Text>
+      <Text>Signature (base64)</Text>
+      <Text style={styles.output}>{sig}</Text>
 
       <Button
         title="Verify signature"
         onPress={onVerify}
         disabled={!pk.length || !sig.length}
       />
-      <Text>Verified: {verified}</Text>
+      <Text>Verified</Text>
+      <Text style={styles.output}>{verified}</Text>
       {!error.length ? null : <Text>Error: {error}</Text>}
     </View>
   )

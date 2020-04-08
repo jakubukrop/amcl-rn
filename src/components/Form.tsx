@@ -6,6 +6,8 @@ import {useSelector, useDispatch} from 'react-redux'
 import {firstNameSelector, lastNameSelector} from '../selectors/base'
 import {updateValue} from '../redux/utils'
 
+import styles from './Form.style'
+
 type FormData = {
   firstName: string
   lastName: string
@@ -33,6 +35,7 @@ export default function App() {
         onChange={(args) => args[0].nativeEvent.text}
         rules={{required: true}}
         defaultValue={firstName}
+        style={styles.textInput}
       />
       {errors.firstName && <Text>This is required.</Text>}
 
@@ -43,6 +46,7 @@ export default function App() {
         name="lastName"
         onChange={(args) => args[0].nativeEvent.text}
         defaultValue={lastName}
+        style={styles.textInput}
       />
 
       <Button title="Submit" onPress={onSubmit} />
