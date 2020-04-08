@@ -46,8 +46,10 @@ jobjectArray Java_com_amclrn_crypto_BlsModule_keyPairGenerateJNI(JNIEnv *env, jo
     OCT_jstring(&SEED, (char *)seedStr);
 
     CREATE_CSPRNG(&RNG, &SEED);
-    (*env)->ReleaseStringUTFChars(env, seedString, seedStr);
     inited = JNI_TRUE;
+
+    (*env)->ReleaseStringUTFChars(env, seedString, seedStr);
+    OCT_clear(&SEED);
   }
 
   // Secret key
@@ -72,6 +74,9 @@ jobjectArray Java_com_amclrn_crypto_BlsModule_keyPairGenerateJNI(JNIEnv *env, jo
   (*env)->SetObjectArrayElement(env, keyStrings, 0, (*env)->NewStringUTF(env, skStr));
   (*env)->SetObjectArrayElement(env, keyStrings, 1, (*env)->NewStringUTF(env, pkStr));
 
+  OCT_clear(&SK);
+  OCT_clear(&PK);
+
   return keyStrings;
 }
 
@@ -82,6 +87,8 @@ jstring Java_com_amclrn_crypto_BlsModule_signJNI(JNIEnv *env, jobject thiz, jstr
   char m[sizeof(msgStr)];
   octet M = {0, sizeof(m), m};
   OCT_jstring(&M, (char *)msgStr);
+
+  syslog(LOG_CRIT, "Sign: %s", msgStr);
 
   // convert SK base64 string to octet
   char sk[BGS_BLS381];
@@ -102,6 +109,9 @@ jstring Java_com_amclrn_crypto_BlsModule_signJNI(JNIEnv *env, jobject thiz, jstr
   // free memory
   (*env)->ReleaseStringUTFChars(env, msgString, msgStr);
   (*env)->ReleaseStringUTFChars(env, skString, skStr);
+  OCT_clear(&M);
+  OCT_clear(&SK);
+  OCT_clear(&SIG);
 
   return sigString;
 }
@@ -133,6 +143,9 @@ jint Java_com_amclrn_crypto_BlsModule_verifyJNI(JNIEnv *env, jobject thiz,
   (*env)->ReleaseStringUTFChars(env, msgString, msgStr);
   (*env)->ReleaseStringUTFChars(env, pkString, pkStr);
   (*env)->ReleaseStringUTFChars(env, sigString, sigStr);
+  OCT_clear(&M);
+  OCT_clear(&PK);
+  OCT_clear(&SIG);
 
   return result;
 }
